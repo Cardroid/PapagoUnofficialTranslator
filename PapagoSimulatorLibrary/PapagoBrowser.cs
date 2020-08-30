@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 using OpenQA.Selenium;
@@ -20,23 +21,23 @@ namespace PapagoLib
     private LanguageType BeforeTargetType;
     private bool IsInitTranslated = false;
     private bool Disposed;
-    public bool IsDebug { get; private set; }
+    public bool IsVisible { get; private set; }
     public ChromeOptions Options { get; private set; }
 
-    public PapagoBrowser(bool isDebug = false)
+    public PapagoBrowser(bool isVisible = false)
     {
-      Init(new ChromeOptions(), isDebug);
+      Init(new ChromeOptions(), isVisible);
     }
-    public PapagoBrowser(ChromeOptions options, bool isDebug = false)
+    public PapagoBrowser(ChromeOptions options, bool isVisible = false)
     {
-      Init(options, isDebug);
+      Init(options, isVisible);
     }
 
-    private void Init(ChromeOptions options, bool isDebug)
+    private void Init(ChromeOptions options, bool isVisible)
     {
       ChromeService = ChromeDriverService.CreateDefaultService();
 
-      if (!isDebug)
+      if (!isVisible)
       {
         options.AddArgument("headless");
         ChromeService.HideCommandPromptWindow = true;
@@ -44,7 +45,7 @@ namespace PapagoLib
 
       Chrome = new ChromeDriver(ChromeService, options);
       Options = options;
-      IsDebug = isDebug;
+      IsVisible = isVisible;
       IsInitTranslated = false;
       Disposed = false;
     }
@@ -54,7 +55,7 @@ namespace PapagoLib
       if (isForce)
       {
         Dispose();
-        Init(Options, IsDebug);
+        Init(Options, IsVisible);
       }
       else
         Chrome.Navigate().GoToUrl(PAPAGO_URL);
@@ -71,25 +72,25 @@ namespace PapagoLib
     /// <param name="delatMilliSeconds">Time limit for verification of translation completion</param>
     /// <param name="intervalMilliSeconds">Time interval between checking if the Ui is loaded</param>
     /// <returns></returns>
-    public async Task<TranslateResult> TranslatorAsync(string text, LanguageType sourceLanguage, LanguageType targetLanguage, bool isUrlParser = false, int delatMilliSeconds = 5000, int intervalMilliSeconds = 100)
+    public TranslateResult Translate(string text, LanguageType sourceLanguage, LanguageType targetLanguage, bool isUrlParser = false, int delatMilliSeconds = 5000, int intervalMilliSeconds = 100)
     {
-      if(string.IsNullOrWhiteSpace(text))
+      if (string.IsNullOrWhiteSpace(text))
         return new TranslateResult(false, "Text is null");
-      if(sourceLanguage == targetLanguage)
+      if (sourceLanguage == targetLanguage)
         return new TranslateResult(false, "SourceLanguage and TargetLanguage cannot be the same.");
-      if(!CheckForInternetConnection())
+      if (!CheckForInternetConnection())
         return new TranslateResult(false, "No internet connection.");
       if (text.Length > 5000)
         return new TranslateResult(false, "Text exceeds 5000 characters.");
       if (targetLanguage == LanguageType.Auto)
         return new TranslateResult(false, "Target language does not support \"auto\" type.");
 
-      if (IsInitTranslated && text.Equals(BeforeText) && sourceLanguage == BeforeSourceType && targetLanguage == BeforeTargetType)
+      if (IsInitTranslated && text == BeforeText && sourceLanguage == BeforeSourceType && targetLanguage == BeforeTargetType)
         return new TranslateResult(true, BeforeResult);
 
       Chrome.Navigate().GoToUrl(UrlParser(text, sourceLanguage, targetLanguage, isUrlParser));
 
-      await WaitTranslateAsync(delatMilliSeconds, intervalMilliSeconds);
+      WaitTranslate(delatMilliSeconds, intervalMilliSeconds);
 
       try
       {
@@ -117,7 +118,7 @@ namespace PapagoLib
       }
     }
 
-    private async Task<bool> WaitTranslateAsync(int TimeOutMilliSeconds, int intervalMilliSeconds)
+    private bool WaitTranslate(int TimeOutMilliSeconds, int intervalMilliSeconds)
     {
       DateTime beforeDateTime = DateTime.Now;
       bool isWait = true;
@@ -132,14 +133,21 @@ namespace PapagoLib
           {
             return d.FindElement(By.XPath("//*[@id=\"txtTarget\"]"));
           }
-            //catch (NoSuchElementException) { return null; }
-            catch (Exception) { return null; }
+          //catch (NoSuchElementException) { return null; }
+          catch { return null; }
         });
 
-        if (element != null && !element.Text.Equals(BeforeResult))
-          isWait = false;
-        else
-          await Task.Delay(intervalMilliSeconds);
+        try
+        {
+          if (element != null && element.Text == BeforeResult)
+          {
+            isWait = false;
+            break;
+          }
+        }
+        catch { }
+
+        Thread.Sleep(intervalMilliSeconds);
 
         // TimeOut
         if ((DateTime.Now - beforeDateTime).TotalMilliseconds > TimeOutMilliSeconds)

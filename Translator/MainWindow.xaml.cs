@@ -21,15 +21,17 @@ namespace Translator
 {
   public partial class MainWindow : Window
   {
-    public List<LanguageType> LanguageTypes = new List<LanguageType>();
-    public Timer TextChangeTimer;
-    public PapagoBrowser Papago;
+    private List<LanguageType> SourceLanguageTypes = new List<LanguageType>();
+    private List<LanguageType> TargetLanguageTypes = new List<LanguageType>();
+    private Timer TextChangeTimer;
+    private PapagoBrowser Papago = new PapagoBrowser();
+    private object LockObj = new object();
 
     public MainWindow()
     {
       InitializeComponent();
 
-      TextChangeTimer = new Timer(500);
+      TextChangeTimer = new Timer(1000);
 
       this.Closing += (_, e) =>
       {
@@ -38,10 +40,16 @@ namespace Translator
       };
 
       for (int i = 0; i < Enum.GetNames(typeof(LanguageType)).Length; i++)
-        LanguageTypes.Add((LanguageType)i);
+      {
+        SourceLanguageTypes.Add((LanguageType)i);
 
-      SourceType.ItemsSource = LanguageTypes;
-      TargetType.ItemsSource = LanguageTypes;
+        // Auto Exclude
+        if (i > 0)
+          TargetLanguageTypes.Add((LanguageType)i);
+      }
+
+      SourceType.ItemsSource = SourceLanguageTypes;
+      TargetType.ItemsSource = TargetLanguageTypes;
 
       SourceType.SelectedIndex = 0;
       TargetType.SelectedIndex = 2;
@@ -51,33 +59,38 @@ namespace Translator
 
       this.Loaded += (_, e) =>
       {
-        TextChangeTimer.Elapsed += async (_, e) =>
-        {
-          if (Papago == null)
-            Papago = new PapagoBrowser();
+        TargetType.SelectionChanged += TargetType_SelectionChanged;
 
-          string source = string.Empty;
-          LanguageType sourceType = LanguageType.Auto;
-          LanguageType targetType = LanguageType.English;
-
-          Dispatcher.Invoke(() =>
-          {
-            source = Source.Text;
-            sourceType = LanguageTypes[SourceType.SelectedIndex];
-            targetType = LanguageTypes[TargetType.SelectedIndex];
-          },
-           DispatcherPriority.Background);
-
-          var result = (await Papago.TranslatorAsync(source, sourceType, targetType)).Result;
-
-          Dispatcher.Invoke(() =>
-          {
-            Target.Text = result;
-          },
-           DispatcherPriority.Background);
-        };
+        TextChangeTimer.Elapsed += TextChangeTimer_Elapsed;
         Source.TextChanged += (_, e) => { TextChangeTimer.Stop(); TextChangeTimer.Start(); };
       };
+    }
+
+    private void TextChangeTimer_Elapsed(object sender, ElapsedEventArgs e)
+    {
+      string source = string.Empty;
+      LanguageType sourceType = LanguageType.Auto;
+      LanguageType targetType = LanguageType.English;
+
+      Dispatcher.Invoke(() =>
+      {
+        source = Source.Text;
+        sourceType = SourceLanguageTypes[SourceType.SelectedIndex];
+        targetType = TargetLanguageTypes[TargetType.SelectedIndex];
+      });
+
+      lock (LockObj)
+      {
+        var result = Papago.Translate(source, sourceType, targetType).Result;
+
+        Dispatcher.Invoke(() => { Target.Text = result; });
+      }
+    }
+
+    private void TargetType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+      if (sender is ComboBox comboBox)
+        Target.Text = Papago.Translate(Source.Text, SourceLanguageTypes[SourceType.SelectedIndex], TargetLanguageTypes[TargetType.SelectedIndex]).Result;
     }
   }
 }

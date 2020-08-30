@@ -39,7 +39,7 @@ namespace LibTest
 
       for (int i = 0; i < test.Length; i++)
       {
-        var result = papagoBrowser.TranslatorAsync(test[i], LanguageType.Auto, LanguageType.English).GetAwaiter().GetResult();
+        var result = papagoBrowser.Translate(test[i], LanguageType.Auto, LanguageType.English);
         if (result.Success)
         {
           success = true;
@@ -72,7 +72,7 @@ namespace LibTest
 
       for (int i = 0; i < test.Length; i++)
       {
-        var result = papagoBrowser.TranslatorAsync(test[i], LanguageType.Auto, LanguageType.English).GetAwaiter().GetResult();
+        var result = papagoBrowser.Translate(test[i], LanguageType.Auto, LanguageType.English);
         if (result.Success)
         {
           success = true;
@@ -90,7 +90,7 @@ namespace LibTest
 
       foreach (var item in Enum.GetNames(typeof(LanguageType)))
       {
-        var result = papagoBrowser.TranslatorAsync("¾È³çÇÏ¼¼¿ä", LanguageType.Korean, (LanguageType)Enum.Parse(typeof(LanguageType), item)).GetAwaiter().GetResult();
+        var result = papagoBrowser.Translate("¾È³çÇÏ¼¼¿ä", LanguageType.Korean, (LanguageType)Enum.Parse(typeof(LanguageType), item));
         Trace.WriteLine($"{item,-20}   {result.Result}");
 
         if (result.Success)
