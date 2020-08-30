@@ -5,10 +5,25 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <UseWPF>true</UseWPF>
     <Platforms>x64;x86</Platforms>
+    <ApplicationIcon>PapagoLogoEdit.ico</ApplicationIcon>
+    <StartupObject>Translator.App</StartupObject>
+    <PackageIcon>PapagoLogoEdit.png</PackageIcon>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PapagoSimulatorLibrary\PapagoSimulatorLibrary.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <SplashScreen Include="PapagoLogoEdit.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </SplashScreen>
   </ItemGroup>
 
 </Project>
